@@ -3,7 +3,7 @@
 $host = "localhost";       // or 127.0.0.1
 $username = "root";        // your MySQL username
 $password = "";            // your MySQL password
-$database = "milk_dist_database";  // change this to your database name
+$database = "milk_dist_database2";  // change this to your database name
 
 // Create connection
 $conn = mysqli_connect($host, $username, $password, $database);
