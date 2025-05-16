@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 13, 2025 at 03:15 PM
+-- Generation Time: May 16, 2025 at 06:24 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -57,6 +57,24 @@ CREATE TABLE `seller_payment` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tbl_address`
+--
+
+CREATE TABLE `tbl_address` (
+  `Address_id` int(11) NOT NULL,
+  `Address` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_address`
+--
+
+INSERT INTO `tbl_address` (`Address_id`, `Address`) VALUES
+(1, 'kadi');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tbl_admin`
 --
 
@@ -65,6 +83,13 @@ CREATE TABLE `tbl_admin` (
   `Contact` int(10) DEFAULT NULL,
   `Password` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_admin`
+--
+
+INSERT INTO `tbl_admin` (`Admin_id`, `Contact`, `Password`) VALUES
+(1, 1234567890, '$2y$10$b7Q/IRhL8z3RJUIpnyfVC.l9puapShguza0bf0SBnTXlbzILKNo6W');
 
 -- --------------------------------------------------------
 
@@ -77,18 +102,18 @@ CREATE TABLE `tbl_customer` (
   `Name` varchar(40) DEFAULT NULL,
   `Contact` bigint(11) DEFAULT NULL,
   `Password` varchar(255) NOT NULL,
-  `Address` text DEFAULT NULL,
   `Price` decimal(10,2) DEFAULT NULL,
-  `Date` date DEFAULT NULL
+  `Date` date DEFAULT NULL,
+  `Address_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_customer`
 --
 
-INSERT INTO `tbl_customer` (`Customer_id`, `Name`, `Contact`, `Password`, `Address`, `Price`, `Date`) VALUES
-(1, 'sanjay suthar', 6356753673, '', 'kadi', 64.00, '2025-04-12'),
-(3, 'Dadu', 1234567890, '$2y$10$RhVOV4IV.IstxxrNMWmOSOm1n2HsUUqOSumx2CVb80EV7SRLJyUMu', 'Kadi', 64.00, '2025-04-13');
+INSERT INTO `tbl_customer` (`Customer_id`, `Name`, `Contact`, `Password`, `Price`, `Date`, `Address_id`) VALUES
+(8, 'Sanjay', 6356753673, '$2y$10$JJaPLET1rtPIwtwwWqkUr.JX3UfkZP8A1MoEGesqaOWTGjCXz4IlO', 66.00, '2025-05-04', 1),
+(9, 'Sanjay', 1234567890, '$2y$10$HzUFL35KyySd3t8Q0Zp0LuueR/wscsB5vbNy8EnOL19Z4324E/1cO', 10.00, '2025-05-09', 1);
 
 -- --------------------------------------------------------
 
@@ -104,15 +129,6 @@ CREATE TABLE `tbl_milk_assignment` (
   `Remaining_quantity` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `tbl_milk_assignment`
---
-
-INSERT INTO `tbl_milk_assignment` (`Assignment_id`, `Seller_id`, `Date`, `Assigned_quantity`, `Remaining_quantity`) VALUES
-(4, 1, '2025-04-10', 150.00, 150.00),
-(5, 2, '2025-04-11', 150.00, 150.00),
-(6, 1, '2025-04-16', 150.00, 150.00);
-
 -- --------------------------------------------------------
 
 --
@@ -127,13 +143,6 @@ CREATE TABLE `tbl_milk_delivery` (
   `Quantity` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `tbl_milk_delivery`
---
-
-INSERT INTO `tbl_milk_delivery` (`Delivery_id`, `Seller_id`, `Customer_id`, `DateTime`, `Quantity`) VALUES
-(1, 1, 1, '2025-04-13 09:04:09', 1.00);
-
 -- --------------------------------------------------------
 
 --
@@ -147,14 +156,6 @@ CREATE TABLE `tbl_seller` (
   `Password` varchar(255) DEFAULT NULL,
   `Vehicle_no` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `tbl_seller`
---
-
-INSERT INTO `tbl_seller` (`Seller_id`, `Name`, `Contact`, `Password`, `Vehicle_no`) VALUES
-(1, 'rishi patel', 1234567890, '123123', 'GJ02ES3812'),
-(2, 'Sanjay', 1234567891, '$2y$10$DoImb9JRh1r0qN9yr2sy5.LE1Vh04EoigA3YnGT/Is3V9tBC2PXji', 'GJO21234');
 
 -- --------------------------------------------------------
 
@@ -189,6 +190,12 @@ ALTER TABLE `seller_payment`
   ADD KEY `User_report_id` (`User_report_id`);
 
 --
+-- Indexes for table `tbl_address`
+--
+ALTER TABLE `tbl_address`
+  ADD PRIMARY KEY (`Address_id`);
+
+--
 -- Indexes for table `tbl_admin`
 --
 ALTER TABLE `tbl_admin`
@@ -198,7 +205,8 @@ ALTER TABLE `tbl_admin`
 -- Indexes for table `tbl_customer`
 --
 ALTER TABLE `tbl_customer`
-  ADD PRIMARY KEY (`Customer_id`);
+  ADD PRIMARY KEY (`Customer_id`),
+  ADD KEY `Address_id` (`Address_id`);
 
 --
 -- Indexes for table `tbl_milk_assignment`
@@ -245,34 +253,40 @@ ALTER TABLE `seller_payment`
   MODIFY `S_payment_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `tbl_address`
+--
+ALTER TABLE `tbl_address`
+  MODIFY `Address_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `tbl_admin`
 --
 ALTER TABLE `tbl_admin`
-  MODIFY `Admin_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `Admin_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `tbl_customer`
 --
 ALTER TABLE `tbl_customer`
-  MODIFY `Customer_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `Customer_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `tbl_milk_assignment`
 --
 ALTER TABLE `tbl_milk_assignment`
-  MODIFY `Assignment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `Assignment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `tbl_milk_delivery`
 --
 ALTER TABLE `tbl_milk_delivery`
-  MODIFY `Delivery_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `Delivery_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `tbl_seller`
 --
 ALTER TABLE `tbl_seller`
-  MODIFY `Seller_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `Seller_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `user_month_report`
@@ -295,6 +309,12 @@ ALTER TABLE `seller_month_revenue`
 --
 ALTER TABLE `seller_payment`
   ADD CONSTRAINT `seller_payment_ibfk_1` FOREIGN KEY (`User_report_id`) REFERENCES `user_month_report` (`User_report_id`);
+
+--
+-- Constraints for table `tbl_customer`
+--
+ALTER TABLE `tbl_customer`
+  ADD CONSTRAINT `tbl_customer_ibfk_1` FOREIGN KEY (`Address_id`) REFERENCES `tbl_address` (`Address_id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `tbl_milk_assignment`

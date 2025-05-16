@@ -6,18 +6,55 @@ include '../connection.php';
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $method = $_SERVER['REQUEST_METHOD'];
+$path = isset($_GET['path']) ? trim($_GET['path'], '/') : '';
 
 switch ($method) {
     case 'GET':
-        // READ customers
-        $sql = "SELECT * FROM tbl_Customer";
-        $result = mysqli_query($conn, $sql);
+        if ($path === 'addresses') {
+            // Fetch all addresses
+            $query = "SELECT Address_id, Address FROM tbl_address";
+            $result = mysqli_query($conn, $query);
 
-        $customers = [];
-        while ($row = mysqli_fetch_assoc($result)) {
-            $customers[] = $row;
-        }
-        echo json_encode($customers);
+            if ($result) {
+                $addresses = [];
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $addresses[] = $row;
+                }
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $addresses
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Failed to fetch addresses: " . mysqli_error($conn)
+                ]);
+            }
+            mysqli_free_result($result);
+        }if ($path === 'customers') {
+            // Fetch all customers with address
+            $sql = "SELECT c.Customer_id, c.Name, c.Contact, c.Price, c.Date, a.Address 
+                    FROM tbl_customer c 
+                    LEFT JOIN tbl_address a ON c.Address_id = a.Address_id";
+            $result = mysqli_query($conn, $sql);
+
+            if ($result) {
+                $customers = [];
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $customers[] = $row;
+                }
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $customers
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Failed to fetch customers: " . mysqli_error($conn)
+                ]);
+            }
+            mysqli_free_result($result);
+        } 
         break;
 
     case 'POST':
@@ -29,7 +66,7 @@ switch ($method) {
             empty($data['Name']) ||
             empty($data['Contact']) ||
             empty($data['Password']) ||
-            empty($data['Address']) ||
+            empty($data['Address_id']) ||
             empty($data['Price']) ||
             empty($data['Date'])
         ) {
@@ -44,7 +81,7 @@ switch ($method) {
         $name = mysqli_real_escape_string($conn, trim($data['Name']));
         $contact = mysqli_real_escape_string($conn, trim($data['Contact']));
         $password = password_hash(trim($data['Password']), PASSWORD_BCRYPT);
-        $address = mysqli_real_escape_string($conn, trim($data['Address']));
+        $address_id = intval($data['Address_id']);
         $price = floatval($data['Price']);
         $date = mysqli_real_escape_string($conn, trim($data['Date']));
 
@@ -93,7 +130,7 @@ switch ($method) {
         mysqli_stmt_close($checkStmt);
 
         // Prepare and execute insert query
-        $sql = "INSERT INTO tbl_Customer (Name, Contact, Password, Address, Price, Date) 
+        $sql = "INSERT INTO tbl_Customer (Name, Contact, Password, Address_id, Price, Date) 
                 VALUES (?, ?, ?, ?, ?, ?)";
         
         $stmt = mysqli_prepare($conn, $sql);
@@ -105,7 +142,7 @@ switch ($method) {
             exit;
         }
 
-        mysqli_stmt_bind_param($stmt, "ssssds", $name, $contact, $password, $address, $price, $date);
+        mysqli_stmt_bind_param($stmt, "sssids", $name, $contact, $password, $address_id, $price, $date);
 
         if (mysqli_stmt_execute($stmt)) {
             echo json_encode([
@@ -127,37 +164,43 @@ switch ($method) {
         // UPDATE customer
         $data = json_decode(file_get_contents("php://input"), true);
 
-        $id = $data['Customer_id'];
-        $name = mysqli_real_escape_string($conn, $data['Name']);
-        $contact = mysqli_real_escape_string($conn, $data['Contact']);
-        $address = mysqli_real_escape_string($conn, $data['Address']);
+        $id = intval($data['Customer_id']);
+        $name = mysqli_real_escape_string($conn, trim($data['Name']));
+        $contact = mysqli_real_escape_string($conn, trim($data['Contact']));
+        $address_id = intval($data['Address_id']);
         $price = floatval($data['Price']);
-        $date = mysqli_real_escape_string($conn, $data['Date']);
+        $date = mysqli_real_escape_string($conn, trim($data['Date']));
 
         $sql = "UPDATE tbl_Customer SET 
-                Name='$name', Contact='$contact', Address='$address', 
-                Price='$price', Date='$date' 
-                WHERE Customer_id=$id";
+                Name=?, Contact=?, Address_id=?, Price=?, Date=? 
+                WHERE Customer_id=?";
 
-        if (mysqli_query($conn, $sql)) {
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ssidsi", $name, $contact, $address_id, $price, $date, $id);
+
+        if (mysqli_stmt_execute($stmt)) {
             echo json_encode(["status" => "success", "message" => "Customer updated successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => mysqli_error($conn)]);
+            echo json_encode(["status" => "error", "message" => mysqli_stmt_error($stmt)]);
         }
+        mysqli_stmt_close($stmt);
         break;
 
     case 'DELETE':
         // DELETE customer
         $data = json_decode(file_get_contents("php://input"), true);
-        $id = $data['Customer_id'];
+        $id = intval($data['Customer_id']);
 
-        $sql = "DELETE FROM tbl_Customer WHERE Customer_id=$id";
+        $sql = "DELETE FROM tbl_Customer WHERE Customer_id=?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "i", $id);
 
-        if (mysqli_query($conn, $sql)) {
+        if (mysqli_stmt_execute($stmt)) {
             echo json_encode(["status" => "success", "message" => "Customer deleted successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => mysqli_error($conn)]);
+            echo json_encode(["status" => "error", "message" => mysqli_stmt_error($stmt)]);
         }
+        mysqli_stmt_close($stmt);
         break;
 
     default:
