@@ -2,23 +2,50 @@
 header("Content-Type: application/json");
 include '../connection.php';
 
-// Enable error reporting for debugging (remove in production)
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// Add CORS headers to allow frontend access
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Get request method and path
 $method = $_SERVER['REQUEST_METHOD'];
 $path = isset($_GET['path']) ? trim($_GET['path'], '/') : '';
 
 switch ($path) {
     case 'customers':
         if ($method === 'GET') {
-            $sql = "SELECT Customer_id, Name, Contact, Address, Price FROM tbl_customer";
-            $result = mysqli_query($conn, $sql);
+            // Fetch customers, optionally filtered by address_ids
+            $address_ids = isset($_GET['address_ids']) ? trim($_GET['address_ids']) : '';
+            
+            $sql = "SELECT c.Customer_id, c.Name, c.Contact, a.Address AS Address, c.Price 
+                    FROM tbl_customer c 
+                    LEFT JOIN tbl_address a ON c.Address_id = a.Address_id";
+            $params = [];
+            if ($address_ids !== '') {
+                // Sanitize address_ids
+                $address_id_array = array_map('intval', explode(',', $address_ids));
+                if (!empty($address_id_array)) {
+                    $placeholders = implode(',', array_fill(0, count($address_id_array), '?'));
+                    $sql .= " WHERE c.Address_id IN ($placeholders)";
+                    $params = $address_id_array;
+                } else {
+                    echo json_encode([
+                        "status" => "error",
+                        "message" => "Invalid address_ids format"
+                    ]);
+                    exit;
+                }
+            }
+
+            $stmt = mysqli_prepare($conn, $sql);
+            if (!empty($params)) {
+                // Bind address IDs dynamically
+                $types = str_repeat('i', count($params));
+                mysqli_stmt_bind_param($stmt, $types, ...$params);
+            }
+
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
 
             if ($result) {
                 $customers = [];
@@ -36,6 +63,7 @@ switch ($path) {
                     "message" => "Failed to fetch customers: " . mysqli_error($conn)
                 ]);
             }
+            mysqli_stmt_close($stmt);
         } else {
             echo json_encode([
                 "status" => "error",
@@ -46,10 +74,7 @@ switch ($path) {
 
     case 'delivery':
         if ($method === 'POST') {
-            // Record milk delivery and update remaining quantity
             $data = json_decode(file_get_contents("php://input"), true);
-
-            // Validate required fields
             if (
                 empty($data['seller_id']) ||
                 empty($data['customer_id']) ||
@@ -62,14 +87,10 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Sanitize and validate inputs
             $seller_id = (int)$data['seller_id'];
             $customer_id = (int)$data['customer_id'];
             $quantity = (float)$data['quantity'];
             $date = mysqli_real_escape_string($conn, trim($data['date']));
-
-            // Validate quantity
             if ($quantity <= 0) {
                 echo json_encode([
                     "status" => "error",
@@ -77,8 +98,6 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Validate date format (YYYY-MM-DD)
             if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
                 echo json_encode([
                     "status" => "error",
@@ -86,12 +105,8 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Start transaction
             mysqli_begin_transaction($conn);
-
             try {
-                // Check if seller exists
                 $checkSeller = mysqli_prepare($conn, "SELECT Seller_id FROM tbl_seller WHERE Seller_id = ?");
                 mysqli_stmt_bind_param($checkSeller, "i", $seller_id);
                 mysqli_stmt_execute($checkSeller);
@@ -101,8 +116,6 @@ switch ($path) {
                     throw new Exception("Seller not found");
                 }
                 mysqli_stmt_close($checkSeller);
-
-                // Check if customer exists
                 $checkCustomer = mysqli_prepare($conn, "SELECT Customer_id FROM tbl_customer WHERE Customer_id = ?");
                 mysqli_stmt_bind_param($checkCustomer, "i", $customer_id);
                 mysqli_stmt_execute($checkCustomer);
@@ -112,25 +125,18 @@ switch ($path) {
                     throw new Exception("Customer not found");
                 }
                 mysqli_stmt_close($checkCustomer);
-
-                // Check if seller has an assignment for the given date
                 $checkAssignment = mysqli_prepare($conn, "SELECT Assignment_id, Remaining_quantity FROM tbl_milk_assignment WHERE Seller_id = ? AND Date = ?");
                 mysqli_stmt_bind_param($checkAssignment, "is", $seller_id, $date);
                 mysqli_stmt_execute($checkAssignment);
                 $result = mysqli_stmt_get_result($checkAssignment);
                 $assignment = mysqli_fetch_assoc($result);
                 mysqli_stmt_close($checkAssignment);
-
                 if (!$assignment) {
-                    throw new Exception("No milk assignment found for the seller on the specified date");
+                    throw new Exception("No milk assignment found for the seller on thecommands specified date");
                 }
-
-                // Check if remaining quantity is sufficient
                 if ($assignment['Remaining_quantity'] < $quantity) {
                     throw new Exception("Insufficient remaining quantity. Available: " . $assignment['Remaining_quantity']);
                 }
-
-                // Insert delivery record
                 $insertDelivery = mysqli_prepare($conn, "INSERT INTO tbl_milk_delivery (Seller_id, Customer_id, DateTime, Quantity) VALUES (?, ?, NOW(), ?)");
                 mysqli_stmt_bind_param($insertDelivery, "iid", $seller_id, $customer_id, $quantity);
                 if (!mysqli_stmt_execute($insertDelivery)) {
@@ -138,8 +144,6 @@ switch ($path) {
                 }
                 $delivery_id = mysqli_insert_id($conn);
                 mysqli_stmt_close($insertDelivery);
-
-                // Update remaining quantity
                 $new_remaining_quantity = $assignment['Remaining_quantity'] - $quantity;
                 $updateAssignment = mysqli_prepare($conn, "UPDATE tbl_milk_assignment SET Remaining_quantity = ? WHERE Assignment_id = ?");
                 mysqli_stmt_bind_param($updateAssignment, "di", $new_remaining_quantity, $assignment['Assignment_id']);
@@ -147,10 +151,7 @@ switch ($path) {
                     throw new Exception("Failed to update remaining quantity: " . mysqli_stmt_error($updateAssignment));
                 }
                 mysqli_stmt_close($updateAssignment);
-
-                // Commit transaction
                 mysqli_commit($conn);
-
                 echo json_encode([
                     "status" => "success",
                     "message" => "Delivery recorded successfully",
@@ -172,10 +173,7 @@ switch ($path) {
                 ]);
             }
         } elseif ($method === 'DELETE') {
-            // Delete milk delivery and update remaining quantity
             $data = json_decode(file_get_contents("php://input"), true);
-
-            // Validate required fields
             if (
                 empty($data['seller_id']) ||
                 empty($data['customer_id']) ||
@@ -188,15 +186,11 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Sanitize and validate inputs
             $delivery_id = isset($data['delivery_id']) ? (int)$data['delivery_id'] : null;
             $seller_id = (int)$data['seller_id'];
             $customer_id = (int)$data['customer_id'];
             $quantity = (float)$data['quantity'];
             $date = mysqli_real_escape_string($conn, trim($data['date']));
-
-            // Validate quantity
             if ($quantity <= 0) {
                 echo json_encode([
                     "status" => "error",
@@ -204,8 +198,6 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Validate date format (YYYY-MM-DD)
             if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
                 echo json_encode([
                     "status" => "error",
@@ -213,12 +205,8 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Start transaction
             mysqli_begin_transaction($conn);
-
             try {
-                // Check if seller exists
                 $checkSeller = mysqli_prepare($conn, "SELECT Seller_id FROM tbl_seller WHERE Seller_id = ?");
                 mysqli_stmt_bind_param($checkSeller, "i", $seller_id);
                 mysqli_stmt_execute($checkSeller);
@@ -228,8 +216,6 @@ switch ($path) {
                     throw new Exception("Seller not found");
                 }
                 mysqli_stmt_close($checkSeller);
-
-                // Check if customer exists
                 $checkCustomer = mysqli_prepare($conn, "SELECT Customer_id FROM tbl_customer WHERE Customer_id = ?");
                 mysqli_stmt_bind_param($checkCustomer, "i", $customer_id);
                 mysqli_stmt_execute($checkCustomer);
@@ -239,41 +225,30 @@ switch ($path) {
                     throw new Exception("Customer not found");
                 }
                 mysqli_stmt_close($checkCustomer);
-
-                // Check if assignment exists for the date
                 $checkAssignment = mysqli_prepare($conn, "SELECT Assignment_id, Remaining_quantity FROM tbl_milk_assignment WHERE Seller_id = ? AND Date = ?");
                 mysqli_stmt_bind_param($checkAssignment, "is", $seller_id, $date);
                 mysqli_stmt_execute($checkAssignment);
                 $result = mysqli_stmt_get_result($checkAssignment);
                 $assignment = mysqli_fetch_assoc($result);
                 mysqli_stmt_close($checkAssignment);
-
                 if (!$assignment) {
                     throw new Exception("No milk assignment found for the seller on the specified date");
                 }
-
-                // Delete delivery record
                 if ($delivery_id) {
-                    // Delete by Delivery_id
                     $deleteDelivery = mysqli_prepare($conn, "DELETE FROM tbl_milk_delivery WHERE Delivery_id = ?");
                     mysqli_stmt_bind_param($deleteDelivery, "i", $delivery_id);
                 } else {
-                    // Fallback to matching by seller_id, customer_id, date, and quantity
                     $deleteDelivery = mysqli_prepare($conn, "DELETE FROM tbl_milk_delivery WHERE Seller_id = ? AND Customer_id = ? AND DATE(DateTime) = ? AND Quantity = ? LIMIT 1");
                     mysqli_stmt_bind_param($deleteDelivery, "iisd", $seller_id, $customer_id, $date, $quantity);
                 }
-
                 if (!mysqli_stmt_execute($deleteDelivery)) {
                     throw new Exception("Failed to delete delivery: " . mysqli_stmt_error($deleteDelivery));
                 }
                 $affected_rows = mysqli_stmt_affected_rows($deleteDelivery);
                 mysqli_stmt_close($deleteDelivery);
-
                 if ($affected_rows === 0) {
                     throw new Exception("No matching delivery found to delete");
                 }
-
-                // Update remaining quantity
                 $new_remaining_quantity = $assignment['Remaining_quantity'] + $quantity;
                 $updateAssignment = mysqli_prepare($conn, "UPDATE tbl_milk_assignment SET Remaining_quantity = ? WHERE Assignment_id = ?");
                 mysqli_stmt_bind_param($updateAssignment, "di", $new_remaining_quantity, $assignment['Assignment_id']);
@@ -281,10 +256,7 @@ switch ($path) {
                     throw new Exception("Failed to update remaining quantity: " . mysqli_stmt_error($updateAssignment));
                 }
                 mysqli_stmt_close($updateAssignment);
-
-                // Commit transaction
                 mysqli_commit($conn);
-
                 echo json_encode([
                     "status" => "success",
                     "message" => "Delivery deleted successfully",
@@ -314,11 +286,8 @@ switch ($path) {
 
     case 'milk_sold':
         if ($method === 'GET') {
-            // Fetch total milk sold by seller on a specific date
             $seller_id = isset($_GET['seller_id']) ? (int)$_GET['seller_id'] : 0;
             $date = isset($_GET['date']) ? mysqli_real_escape_string($conn, trim($_GET['date'])) : '';
-
-            // Validate inputs
             if ($seller_id <= 0 || empty($date)) {
                 echo json_encode([
                     "status" => "error",
@@ -326,8 +295,6 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Validate date format (YYYY-MM-DD)
             if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
                 echo json_encode([
                     "status" => "error",
@@ -335,9 +302,7 @@ switch ($path) {
                 ]);
                 exit;
             }
-
             try {
-                // Query to sum quantities for the seller on the date
                 $sql = "SELECT COALESCE(SUM(Quantity), 0) as total_quantity
                         FROM tbl_milk_delivery
                         WHERE Seller_id = ? AND DATE(DateTime) = ?";
@@ -347,7 +312,6 @@ switch ($path) {
                 $result = mysqli_stmt_get_result($stmt);
                 $row = mysqli_fetch_assoc($result);
                 mysqli_stmt_close($stmt);
-
                 echo json_encode([
                     "status" => "success",
                     "message" => "Total milk sold fetched successfully",
@@ -374,11 +338,8 @@ switch ($path) {
 
     case 'milk_assignment':
         if ($method === 'GET') {
-            // Fetch milk assignment details for seller on a specific date
             $seller_id = isset($_GET['seller_id']) ? (int)$_GET['seller_id'] : 0;
             $date = isset($_GET['date']) ? mysqli_real_escape_string($conn, trim($_GET['date'])) : '';
-
-            // Validate inputs
             if ($seller_id <= 0 || empty($date)) {
                 echo json_encode([
                     "status" => "error",
@@ -386,8 +347,6 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Validate date format (YYYY-MM-DD)
             if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
                 echo json_encode([
                     "status" => "error",
@@ -395,9 +354,7 @@ switch ($path) {
                 ]);
                 exit;
             }
-
             try {
-                // Query to get assignment details
                 $sql = "SELECT Assigned_quantity, Remaining_quantity
                         FROM tbl_milk_assignment
                         WHERE Seller_id = ? AND Date = ?";
@@ -407,7 +364,6 @@ switch ($path) {
                 $result = mysqli_stmt_get_result($stmt);
                 $row = mysqli_fetch_assoc($result);
                 mysqli_stmt_close($stmt);
-
                 if ($row) {
                     echo json_encode([
                         "status" => "success",
@@ -448,11 +404,8 @@ switch ($path) {
 
     case 'distribution_details':
         if ($method === 'GET') {
-            // Fetch milk delivery details for seller on a specific date
             $seller_id = isset($_GET['seller_id']) ? (int)$_GET['seller_id'] : 0;
             $date = isset($_GET['date']) ? mysqli_real_escape_string($conn, trim($_GET['date'])) : '';
-
-            // Validate inputs
             if ($seller_id <= 0 || empty($date)) {
                 echo json_encode([
                     "status" => "error",
@@ -460,8 +413,6 @@ switch ($path) {
                 ]);
                 exit;
             }
-
-            // Validate date format (YYYY-MM-DD)
             if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
                 echo json_encode([
                     "status" => "error",
@@ -469,12 +420,11 @@ switch ($path) {
                 ]);
                 exit;
             }
-
             try {
-                // Query to get delivery details
-                $sql = "SELECT Delivery_id, Seller_id, Customer_id, Quantity, DATE(DateTime) as date
-                        FROM tbl_milk_delivery
-                        WHERE Seller_id = ? AND DATE(DateTime) = ?";
+                $sql = "SELECT d.Delivery_id, d.Seller_id, d.Customer_id, d.Quantity, DATE(d.DateTime) as date, c.Name as customer_name
+                        FROM tbl_milk_delivery d
+                        JOIN tbl_customer c ON d.Customer_id = c.Customer_id
+                        WHERE d.Seller_id = ? AND DATE(d.DateTime) = ?";
                 $stmt = mysqli_prepare($conn, $sql);
                 mysqli_stmt_bind_param($stmt, "is", $seller_id, $date);
                 mysqli_stmt_execute($stmt);
@@ -485,12 +435,12 @@ switch ($path) {
                         'delivery_id' => (int)$row['Delivery_id'],
                         'seller_id' => (int)$row['Seller_id'],
                         'customer_id' => (int)$row['Customer_id'],
+                        'customer_name' => $row['customer_name'],
                         'quantity' => (float)$row['Quantity'],
                         'date' => $row['date']
                     ];
                 }
                 mysqli_stmt_close($stmt);
-
                 echo json_encode([
                     "status" => "success",
                     "message" => "Distribution details fetched successfully",

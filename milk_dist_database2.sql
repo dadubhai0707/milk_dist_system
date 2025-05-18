@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 16, 2025 at 06:24 PM
+-- Generation Time: May 18, 2025 at 08:48 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -70,7 +70,12 @@ CREATE TABLE `tbl_address` (
 --
 
 INSERT INTO `tbl_address` (`Address_id`, `Address`) VALUES
-(1, 'kadi');
+(1, 'kadi'),
+(2, 'Kadi2'),
+(3, 'Dadu'),
+(4, 'Kalol'),
+(5, 'Babajiup'),
+(6, 'Dadu');
 
 -- --------------------------------------------------------
 
@@ -113,7 +118,9 @@ CREATE TABLE `tbl_customer` (
 
 INSERT INTO `tbl_customer` (`Customer_id`, `Name`, `Contact`, `Password`, `Price`, `Date`, `Address_id`) VALUES
 (8, 'Sanjay', 6356753673, '$2y$10$JJaPLET1rtPIwtwwWqkUr.JX3UfkZP8A1MoEGesqaOWTGjCXz4IlO', 66.00, '2025-05-04', 1),
-(9, 'Sanjay', 1234567890, '$2y$10$HzUFL35KyySd3t8Q0Zp0LuueR/wscsB5vbNy8EnOL19Z4324E/1cO', 10.00, '2025-05-09', 1);
+(9, 'Sanjay', 1234567890, '$2y$10$HzUFL35KyySd3t8Q0Zp0LuueR/wscsB5vbNy8EnOL19Z4324E/1cO', 10.00, '2025-05-09', 2),
+(10, 'India', 1122334455, '$2y$10$/Kqnl0dRDj0VaIBhG11bGedv9U4KjYDEgB.1BCM7Jxheou/QBa7ge', 33.00, '2025-05-16', 1),
+(11, 'Dadubhai', 1231231231, '$2y$10$kXJkJCAtfE5a7YOBGeRZA.1RjDQREO0WGbZd5c4Vcb4dxaKvuzfWS', 66.00, '2025-05-18', 1);
 
 -- --------------------------------------------------------
 
@@ -129,6 +136,14 @@ CREATE TABLE `tbl_milk_assignment` (
   `Remaining_quantity` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `tbl_milk_assignment`
+--
+
+INSERT INTO `tbl_milk_assignment` (`Assignment_id`, `Seller_id`, `Date`, `Assigned_quantity`, `Remaining_quantity`) VALUES
+(11, 7, '2025-05-16', 100.00, 100.00),
+(12, 7, '2025-05-18', 100.00, 90.00);
+
 -- --------------------------------------------------------
 
 --
@@ -143,6 +158,13 @@ CREATE TABLE `tbl_milk_delivery` (
   `Quantity` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `tbl_milk_delivery`
+--
+
+INSERT INTO `tbl_milk_delivery` (`Delivery_id`, `Seller_id`, `Customer_id`, `DateTime`, `Quantity`) VALUES
+(15, 7, 8, '2025-05-18 12:17:52', 10.00);
+
 -- --------------------------------------------------------
 
 --
@@ -156,6 +178,13 @@ CREATE TABLE `tbl_seller` (
   `Password` varchar(255) DEFAULT NULL,
   `Vehicle_no` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_seller`
+--
+
+INSERT INTO `tbl_seller` (`Seller_id`, `Name`, `Contact`, `Password`, `Vehicle_no`) VALUES
+(7, 'Sanjay', 1234567890, '$2y$10$hLfORxbK4wnpURo8wVyeJeMZsBckbthjSJSUHUqU.KdKEhx.JCyZ6', 'Gj01');
 
 -- --------------------------------------------------------
 
@@ -256,7 +285,7 @@ ALTER TABLE `seller_payment`
 -- AUTO_INCREMENT for table `tbl_address`
 --
 ALTER TABLE `tbl_address`
-  MODIFY `Address_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `Address_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `tbl_admin`
@@ -268,25 +297,25 @@ ALTER TABLE `tbl_admin`
 -- AUTO_INCREMENT for table `tbl_customer`
 --
 ALTER TABLE `tbl_customer`
-  MODIFY `Customer_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `Customer_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `tbl_milk_assignment`
 --
 ALTER TABLE `tbl_milk_assignment`
-  MODIFY `Assignment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `Assignment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `tbl_milk_delivery`
 --
 ALTER TABLE `tbl_milk_delivery`
-  MODIFY `Delivery_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `Delivery_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `tbl_seller`
 --
 ALTER TABLE `tbl_seller`
-  MODIFY `Seller_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `Seller_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `user_month_report`
