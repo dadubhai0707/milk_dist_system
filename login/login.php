@@ -47,7 +47,7 @@ if ($path === 'login' && $method === 'POST') {
                 $table = 'tbl_customer';
                 $id_column = 'Customer_id';
                 $name_column = 'Name';
-                $address_column = 'Address';
+                // Address is fetched via join with tbl_address
                 break;
             case 'seller':
                 $table = 'tbl_seller';
@@ -66,10 +66,22 @@ if ($path === 'login' && $method === 'POST') {
         }
 
         // Prepare SQL query
-        $columns = "$id_column, Password" . ($name_column ? ", $name_column" : "") . ($address_column ? ", $address_column" : "");
-        $sql = "SELECT $columns FROM $table WHERE Contact = ?";
-        $stmt = mysqli_prepare($conn, $sql);
-        mysqli_stmt_bind_param($stmt, "s", $contact);
+        if ($user_type === 'customer') {
+            // Join with tbl_address for customer
+            $sql = "SELECT c.$id_column, c.Password, c.$name_column, a.Address 
+                    FROM $table c 
+                    LEFT JOIN tbl_address a ON c.Address_id = a.Address_id 
+                    WHERE c.Contact = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "s", $contact);
+        } else {
+            // Original query for seller and admin
+            $columns = "$id_column, Password" . ($name_column ? ", $name_column" : "");
+            $sql = "SELECT $columns FROM $table WHERE Contact = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "s", $contact);
+        }
+
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
 
@@ -77,7 +89,7 @@ if ($path === 'login' && $method === 'POST') {
             $stored_password = $row['Password'];
             $user_id = $row[$id_column];
             $user_name = $name_column ? $row[$name_column] : null;
-            $user_address = $address_column ? $row[$address_column] : null;
+            $user_address = ($user_type === 'customer') ? ($row['Address'] ?? 'N/A') : null;
 
             // Verify password
             $is_valid_password = false;

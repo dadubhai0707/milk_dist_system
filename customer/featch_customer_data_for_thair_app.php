@@ -63,6 +63,24 @@ switch ($path) {
                 $prev_quantity = (float)$row_prev['total_quantity'];
                 mysqli_stmt_close($stmt_prev);
 
+                // Next month
+                $next_month = $month + 1;
+                $next_year = $year;
+                if ($next_month === 13) {
+                    $next_month = 1;
+                    $next_year++;
+                }
+                $sql_next = "SELECT COALESCE(SUM(d.Quantity), 0) as total_quantity
+                             FROM tbl_milk_delivery d
+                             WHERE d.Customer_id = ? AND YEAR(d.DateTime) = ? AND MONTH(d.DateTime) = ?";
+                $stmt_next = mysqli_prepare($conn, $sql_next);
+                mysqli_stmt_bind_param($stmt_next, "iii", $customer_id, $next_year, $next_month);
+                mysqli_stmt_execute($stmt_next);
+                $result_next = mysqli_stmt_get_result($stmt_next);
+                $row_next = mysqli_fetch_assoc($result_next);
+                $next_quantity = (float)$row_next['total_quantity'];
+                mysqli_stmt_close($stmt_next);
+
                 // Daily records for current month
                 $sql_daily = "SELECT DATE(d.DateTime) as date, d.Quantity
                               FROM tbl_milk_delivery d
@@ -81,6 +99,42 @@ switch ($path) {
                 }
                 mysqli_stmt_close($stmt_daily);
 
+                // Daily records for previous month
+                $sql_prev_daily = "SELECT DATE(d.DateTime) as date, d.Quantity
+                                  FROM tbl_milk_delivery d
+                                  WHERE d.Customer_id = ? AND YEAR(d.DateTime) = ? AND MONTH(d.DateTime) = ?
+                                  ORDER BY d.DateTime DESC";
+                $stmt_prev_daily = mysqli_prepare($conn, $sql_prev_daily);
+                mysqli_stmt_bind_param($stmt_prev_daily, "iii", $customer_id, $prev_year, $prev_month);
+                mysqli_stmt_execute($stmt_prev_daily);
+                $result_prev_daily = mysqli_stmt_get_result($stmt_prev_daily);
+                $prev_daily_records = [];
+                while ($row = mysqli_fetch_assoc($result_prev_daily)) {
+                    $prev_daily_records[] = [
+                        'date' => $row['date'],
+                        'quantity' => (float)$row['Quantity']
+                    ];
+                }
+                mysqli_stmt_close($stmt_prev_daily);
+
+                // Daily records for next month
+                $sql_next_daily = "SELECT DATE(d.DateTime) as date, d.Quantity
+                                  FROM tbl_milk_delivery d
+                                  WHERE d.Customer_id = ? AND YEAR(d.DateTime) = ? AND MONTH(d.DateTime) = ?
+                                  ORDER BY d.DateTime DESC";
+                $stmt_next_daily = mysqli_prepare($conn, $sql_next_daily);
+                mysqli_stmt_bind_param($stmt_next_daily, "iii", $customer_id, $next_year, $next_month);
+                mysqli_stmt_execute($stmt_next_daily);
+                $result_next_daily = mysqli_stmt_get_result($stmt_next_daily);
+                $next_daily_records = [];
+                while ($row = mysqli_fetch_assoc($result_next_daily)) {
+                    $next_daily_records[] = [
+                        'date' => $row['date'],
+                        'quantity' => (float)$row['Quantity']
+                    ];
+                }
+                mysqli_stmt_close($stmt_next_daily);
+
                 echo json_encode([
                     "status" => "success",
                     "message" => "Monthly consumption fetched successfully",
@@ -90,7 +144,7 @@ switch ($path) {
                             "month" => $month,
                             "total_quantity" => $current_quantity,
                             "total_price" => $current_quantity * $price_per_liter,
-                            "price_per_liter" => $price_per_liter, // Added for clarity
+                            "price_per_liter" => $price_per_liter,
                             "daily_records" => $daily_records
                         ],
                         "previous_month" => [
@@ -98,7 +152,16 @@ switch ($path) {
                             "month" => $prev_month,
                             "total_quantity" => $prev_quantity,
                             "total_price" => $prev_quantity * $price_per_liter,
-                            "price_per_liter" => $price_per_liter // Added for clarity
+                            "price_per_liter" => $price_per_liter,
+                            "daily_records" => $prev_daily_records
+                        ],
+                        "next_month" => [
+                            "year" => $next_year,
+                            "month" => $next_month,
+                            "total_quantity" => $next_quantity,
+                            "total_price" => $next_quantity * $price_per_liter,
+                            "price_per_liter" => $price_per_liter,
+                            "daily_records" => $next_daily_records
                         ]
                     ]
                 ]);
@@ -116,7 +179,6 @@ switch ($path) {
         }
         break;
 
-    // Other cases (distribution_details, total_distributed) remain unchanged
     default:
         echo json_encode([
             "status" => "error",
