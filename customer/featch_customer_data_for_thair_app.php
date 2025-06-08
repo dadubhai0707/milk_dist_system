@@ -45,6 +45,18 @@ switch ($path) {
                 $price_per_liter = $row_current['Price'] ? (float)$row_current['Price'] : 64.0;
                 mysqli_stmt_close($stmt_current);
 
+                // Check payment status for current month
+                $sql_current_payment = "SELECT COUNT(*) as paid_count
+                                       FROM seller_payment
+                                       WHERE Customer_id = ? AND YEAR(Payment_date) = ? AND MONTH(Payment_date) = ? 
+                                       AND Payment_status = 'Paid'";
+                $stmt_current_payment = mysqli_prepare($conn, $sql_current_payment);
+                mysqli_stmt_bind_param($stmt_current_payment, "iii", $customer_id, $year, $month);
+                mysqli_stmt_execute($stmt_current_payment);
+                $result_current_payment = mysqli_stmt_get_result($stmt_current_payment);
+                $current_payment = mysqli_fetch_assoc($result_current_payment)['paid_count'] > 0;
+                mysqli_stmt_close($stmt_current_payment);
+
                 // Previous month
                 $prev_month = $month - 1;
                 $prev_year = $year;
@@ -63,6 +75,18 @@ switch ($path) {
                 $prev_quantity = (float)$row_prev['total_quantity'];
                 mysqli_stmt_close($stmt_prev);
 
+                // Check payment status for previous month
+                $sql_prev_payment = "SELECT COUNT(*) as paid_count
+                                     FROM seller_payment
+                                     WHERE Customer_id = ? AND YEAR(Payment_date) = ? AND MONTH(Payment_date) = ? 
+                                     AND Payment_status = 'Paid'";
+                $stmt_prev_payment = mysqli_prepare($conn, $sql_prev_payment);
+                mysqli_stmt_bind_param($stmt_prev_payment, "iii", $customer_id, $prev_year, $prev_month);
+                mysqli_stmt_execute($stmt_prev_payment);
+                $result_prev_payment = mysqli_stmt_get_result($stmt_prev_payment);
+                $prev_payment = mysqli_fetch_assoc($result_prev_payment)['paid_count'] > 0;
+                mysqli_stmt_close($stmt_prev_payment);
+
                 // Next month
                 $next_month = $month + 1;
                 $next_year = $year;
@@ -80,6 +104,18 @@ switch ($path) {
                 $row_next = mysqli_fetch_assoc($result_next);
                 $next_quantity = (float)$row_next['total_quantity'];
                 mysqli_stmt_close($stmt_next);
+
+                // Check payment status for next month
+                $sql_next_payment = "SELECT COUNT(*) as paid_count
+                                     FROM seller_payment
+                                     WHERE Customer_id = ? AND YEAR(Payment_date) = ? AND MONTH(Payment_date) = ? 
+                                     AND Payment_status = 'Paid'";
+                $stmt_next_payment = mysqli_prepare($conn, $sql_next_payment);
+                mysqli_stmt_bind_param($stmt_next_payment, "iii", $customer_id, $next_year, $next_month);
+                mysqli_stmt_execute($stmt_next_payment);
+                $result_next_payment = mysqli_stmt_get_result($stmt_next_payment);
+                $next_payment = mysqli_fetch_assoc($result_next_payment)['paid_count'] > 0;
+                mysqli_stmt_close($stmt_next_payment);
 
                 // Daily records for current month
                 $sql_daily = "SELECT DATE(d.DateTime) as date, d.Quantity
@@ -145,7 +181,8 @@ switch ($path) {
                             "total_quantity" => $current_quantity,
                             "total_price" => $current_quantity * $price_per_liter,
                             "price_per_liter" => $price_per_liter,
-                            "daily_records" => $daily_records
+                            "daily_records" => $daily_records,
+                            "paid" => $current_payment
                         ],
                         "previous_month" => [
                             "year" => $prev_year,
@@ -153,7 +190,8 @@ switch ($path) {
                             "total_quantity" => $prev_quantity,
                             "total_price" => $prev_quantity * $price_per_liter,
                             "price_per_liter" => $price_per_liter,
-                            "daily_records" => $prev_daily_records
+                            "daily_records" => $prev_daily_records,
+                            "paid" => $prev_payment
                         ],
                         "next_month" => [
                             "year" => $next_year,
@@ -161,7 +199,8 @@ switch ($path) {
                             "total_quantity" => $next_quantity,
                             "total_price" => $next_quantity * $price_per_liter,
                             "price_per_liter" => $price_per_liter,
-                            "daily_records" => $next_daily_records
+                            "daily_records" => $next_daily_records,
+                            "paid" => $next_payment
                         ]
                     ]
                 ]);
