@@ -130,6 +130,30 @@ switch ($method) {
 
         $address_id = intval($data['Address_id']);
 
+        // Check for foreign key constraints
+        $check_query = "SELECT COUNT(*) AS count FROM tbl_customer WHERE Address_id = ?";
+        $check_stmt = mysqli_prepare($conn, $check_query);
+        if ($check_stmt === false) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Failed to prepare constraint check: " . mysqli_error($conn)
+            ]);
+            exit;
+        }
+        mysqli_stmt_bind_param($check_stmt, "i", $address_id);
+        mysqli_stmt_execute($check_stmt);
+        $result = mysqli_stmt_get_result($check_stmt);
+        $count = mysqli_fetch_assoc($result)['count'];
+        mysqli_stmt_close($check_stmt);
+
+        if ($count > 0) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Cannot delete address because it is linked to customers"
+            ]);
+            exit;
+        }
+
         $sql = "DELETE FROM tbl_address WHERE Address_id = ?";
         $stmt = mysqli_prepare($conn, $sql);
         if ($stmt === false) {

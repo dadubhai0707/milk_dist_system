@@ -10,28 +10,7 @@ $path = isset($_GET['path']) ? trim($_GET['path'], '/') : '';
 
 switch ($method) {
     case 'GET':
-        if ($path === 'addresses') {
-            // Fetch all addresses
-            $query = "SELECT Address_id, Address FROM tbl_address";
-            $result = mysqli_query($conn, $query);
-
-            if ($result) {
-                $addresses = [];
-                while ($row = mysqli_fetch_assoc($result)) {
-                    $addresses[] = $row;
-                }
-                echo json_encode([
-                    "status" => "success",
-                    "data" => $addresses
-                ]);
-            } else {
-                echo json_encode([
-                    "status" => "error",
-                    "message" => "Failed to fetch addresses: " . mysqli_error($conn)
-                ]);
-            }
-            mysqli_free_result($result);
-        }if ($path === 'customers') {
+        if ($path === 'customers') {
             // Fetch all customers with address
             $sql = "SELECT c.Customer_id, c.Name, c.Contact, c.Price, c.Date, a.Address 
                     FROM tbl_customer c 
