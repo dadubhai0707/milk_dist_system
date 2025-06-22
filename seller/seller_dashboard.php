@@ -17,7 +17,7 @@ if (empty($_GET['seller_id'])) {
 }
 
 $seller_id = intval($_GET['seller_id']);
-$today = date('Y-m-d'); // 2025-06-15
+$today = date('Y-m-d'); // e.g., 2025-06-22
 
 try {
     // Fetch seller's name
@@ -37,8 +37,8 @@ try {
     $seller_name = $seller['Name'];
     mysqli_stmt_close($seller_stmt);
 
-    // Fetch today's assigned milk
-    $assign_sql = "SELECT COALESCE(SUM(Assigned_quantity), 0) AS total_assigned
+    // Fetch today's assigned and remaining milk
+    $assign_sql = "SELECT COALESCE(SUM(Assigned_quantity), 0) AS total_assigned, COALESCE(SUM(Remaining_quantity), 0) AS remaining_quantity
                    FROM tbl_milk_assignment
                    WHERE Seller_id = ? AND Date = ?";
     $assign_stmt = mysqli_prepare($conn, $assign_sql);
@@ -47,31 +47,15 @@ try {
     $assign_result = mysqli_stmt_get_result($assign_stmt);
     $assign_data = mysqli_fetch_assoc($assign_result);
     $total_assigned = $assign_data['total_assigned'];
+    $remaining_quantity = $assign_data['remaining_quantity'];
     mysqli_stmt_close($assign_stmt);
-
-    // Fetch delivery locations (distinct addresses)
-    $delivery_sql = "SELECT DISTINCT a.Address
-                     FROM tbl_milk_delivery d
-                     JOIN tbl_customer c ON d.Customer_id = c.Customer_id
-                     JOIN tbl_address a ON c.Address_id = a.Address_id
-                     WHERE d.Seller_id = ? AND DATE(d.DateTime) = ?";
-    $delivery_stmt = mysqli_prepare($conn, $delivery_sql);
-    mysqli_stmt_bind_param($delivery_stmt, "is", $seller_id, $today);
-    mysqli_stmt_execute($delivery_stmt);
-    $delivery_result = mysqli_stmt_get_result($delivery_stmt);
-    
-    $delivery_locations = [];
-    while ($row = mysqli_fetch_assoc($delivery_result)) {
-        $delivery_locations[] = $row['Address'];
-    }
-    mysqli_stmt_close($delivery_stmt);
 
     echo json_encode([
         "status" => "success",
         "data" => [
             "seller_name" => $seller_name,
             "total_assigned" => floatval($total_assigned),
-            "delivery_locations" => $delivery_locations
+            "remaining_quantity" => floatval($remaining_quantity)
         ]
     ]);
 

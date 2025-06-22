@@ -16,7 +16,7 @@ switch ($path) {
         if ($method === 'GET') {
             // Fetch customers, optionally filtered by address_ids
             $address_ids = isset($_GET['address_ids']) ? trim($_GET['address_ids']) : '';
-            
+
             $sql = "SELECT c.Customer_id, c.Name, c.Contact, a.Address AS Address, c.Price 
                     FROM tbl_customer c 
                     LEFT JOIN tbl_address a ON c.Address_id = a.Address_id";
@@ -460,7 +460,67 @@ switch ($path) {
             ]);
         }
         break;
+    case 'addresses':
+        if ($method === 'GET') {
+            $address_ids = isset($_GET['address_ids']) ? trim($_GET['address_ids']) : '';
 
+            $sql = "SELECT Address_id, Address FROM tbl_address";
+            $params = [];
+            if ($address_ids !== '') {
+                // Sanitize address_ids
+                $address_id_array = array_map('intval', explode(',', $address_ids));
+                if (!empty($address_id_array)) {
+                    $placeholders = implode(',', array_fill(0, count($address_id_array), '?'));
+                    $sql .= " WHERE Address_id IN ($placeholders)";
+                    $params = $address_id_array;
+                } else {
+                    echo json_encode([
+                        "status" => "error",
+                        "message" => "Invalid address_ids format"
+                    ]);
+                    exit;
+                }
+            }
+
+            try {
+                $stmt = mysqli_prepare($conn, $sql);
+                if (!empty($params)) {
+                    $types = str_repeat('i', count($params));
+                    mysqli_stmt_bind_param($stmt, $types, ...$params);
+                }
+
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+
+                $addresses = [];
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $addresses[] = [
+                        'Address_id' => (int)$row['Address_id'],
+                        'Address' => $row['Address']
+                    ];
+                }
+
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Addresses fetched successfully",
+                    "data" => $addresses
+                ]);
+
+                mysqli_stmt_close($stmt);
+            } catch (Exception $e) {
+                error_log("Addresses GET Error: " . $e->getMessage());
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Failed to fetch addresses: " . $e->getMessage()
+                ]);
+            }
+        } else {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Invalid request method"
+            ]);
+        }
+        break;
     default:
         echo json_encode([
             "status" => "error",
@@ -470,4 +530,3 @@ switch ($path) {
 }
 
 mysqli_close($conn);
-?>

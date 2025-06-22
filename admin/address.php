@@ -2,7 +2,6 @@
 header("Content-Type: application/json");
 include '../connection.php'; // Adjust path to connection.php
 
-// Enable error reporting for debugging (remove in production)
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $method = $_SERVER['REQUEST_METHOD'];

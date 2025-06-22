@@ -2,14 +2,12 @@
 header("Content-Type: application/json");
 include '../connection.php';
 
-// Enable error reporting for debugging (remove in production)
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // READ sellers (only active)
         $sql = "SELECT * FROM tbl_Seller ";
         $result = mysqli_query($conn, $sql);
 
@@ -26,10 +24,8 @@ switch ($method) {
         break;
 
     case 'POST':
-        // CREATE seller
         $data = json_decode(file_get_contents("php://input"), true);
 
-        // Validate required fields
         if (
             empty($data['Name']) ||
             empty($data['Contact']) ||
@@ -43,13 +39,11 @@ switch ($method) {
             exit;
         }
 
-        // Sanitize and validate inputs
         $name = mysqli_real_escape_string($conn, trim($data['Name']));
         $contact = mysqli_real_escape_string($conn, trim($data['Contact']));
         $password = password_hash(trim($data['Password']), PASSWORD_BCRYPT);
         $vehicle_no = mysqli_real_escape_string($conn, trim($data['Vehicle_no']));
 
-        // Validate phone number (basic check for 10 digits)
         if (!preg_match("/^[0-9]{10}$/", $contact)) {
             echo json_encode([
                 "status" => "error",
@@ -58,7 +52,6 @@ switch ($method) {
             exit;
         }
 
-        // Validate vehicle number (basic check for alphanumeric with optional spaces/hyphens)
         if (!preg_match("/^[A-Za-z0-9\s\-]{1,20}$/", $vehicle_no)) {
             echo json_encode([
                 "status" => "error",
