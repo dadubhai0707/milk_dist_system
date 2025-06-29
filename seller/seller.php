@@ -82,7 +82,7 @@ switch ($method) {
                 VALUES (?, ?, ?, ?, 1)";
         
         $stmt = mysqli_prepare($conn, $sql);
-        if ($stmt === false) {
+        if ($stmt === false) {  
             echo json_encode([
                 "status" => "error",
                 "message" => "Failed to prepare statement: " . mysqli_error($conn)

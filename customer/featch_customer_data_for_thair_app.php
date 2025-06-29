@@ -31,10 +31,19 @@ switch ($path) {
             }
 
             try {
+                // Fetch customer details (Price and Customer_id)
+                $sql_customer = "SELECT Customer_id, Price FROM tbl_customer WHERE Customer_id = ?";
+                $stmt_customer = mysqli_prepare($conn, $sql_customer);
+                mysqli_stmt_bind_param($stmt_customer, "i", $customer_id);
+                mysqli_stmt_execute($stmt_customer);
+                $result_customer = mysqli_stmt_get_result($stmt_customer);
+                $customer_data = mysqli_fetch_assoc($result_customer);
+                $price_per_liter = $customer_data['Price'] ? (float)$customer_data['Price'] : 64.0;
+                mysqli_stmt_close($stmt_customer);
+
                 // Current month
-                $sql_current = "SELECT COALESCE(SUM(d.Quantity), 0) as total_quantity, c.Price
+                $sql_current = "SELECT COALESCE(SUM(d.Quantity), 0) as total_quantity
                                FROM tbl_milk_delivery d
-                               LEFT JOIN tbl_customer c ON d.Customer_id = c.Customer_id
                                WHERE d.Customer_id = ? AND YEAR(d.DateTime) = ? AND MONTH(d.DateTime) = ?";
                 $stmt_current = mysqli_prepare($conn, $sql_current);
                 mysqli_stmt_bind_param($stmt_current, "iii", $customer_id, $year, $month);
@@ -42,7 +51,6 @@ switch ($path) {
                 $result_current = mysqli_stmt_get_result($stmt_current);
                 $row_current = mysqli_fetch_assoc($result_current);
                 $current_quantity = (float)$row_current['total_quantity'];
-                $price_per_liter = $row_current['Price'] ? (float)$row_current['Price'] : 64.0;
                 mysqli_stmt_close($stmt_current);
 
                 // Check payment status for current month
@@ -178,27 +186,30 @@ switch ($path) {
                         "current_month" => [
                             "year" => $year,
                             "month" => $month,
+                            "customer_id" => $customer_id,
+                            "price_per_liter" => $price_per_liter,
                             "total_quantity" => $current_quantity,
                             "total_price" => $current_quantity * $price_per_liter,
-                            "price_per_liter" => $price_per_liter,
                             "daily_records" => $daily_records,
                             "paid" => $current_payment
                         ],
                         "previous_month" => [
                             "year" => $prev_year,
                             "month" => $prev_month,
+                            "customer_id" => $customer_id,
+                            "price_per_liter" => $price_per_liter,
                             "total_quantity" => $prev_quantity,
                             "total_price" => $prev_quantity * $price_per_liter,
-                            "price_per_liter" => $price_per_liter,
                             "daily_records" => $prev_daily_records,
                             "paid" => $prev_payment
                         ],
                         "next_month" => [
                             "year" => $next_year,
                             "month" => $next_month,
+                            "customer_id" => $customer_id,
+                            "price_per_liter" => $price_per_liter,
                             "total_quantity" => $next_quantity,
                             "total_price" => $next_quantity * $price_per_liter,
-                            "price_per_liter" => $price_per_liter,
                             "daily_records" => $next_daily_records,
                             "paid" => $next_payment
                         ]
