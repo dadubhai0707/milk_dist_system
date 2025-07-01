@@ -9,8 +9,8 @@ include '../connection.php';
 // Enable error reporting for debugging (remove in production)
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// Get date and optional seller_id from query parameters, default date to today (June 29, 2025, 04:04 PM IST)
-$date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d', strtotime('04:04 PM IST'));
+// Get date and optional seller_id from query parameters, default date to today (July 1, 2025)
+$date = isset($_GET['date']) ? $_GET['date'] : '2025-07-01';
 $seller_id = isset($_GET['seller_id']) ? $_GET['seller_id'] : null;
 
 try {
@@ -24,7 +24,7 @@ try {
     }
 
     if ($seller_id === null) {
-        // Mode 1: Fetch all sellers with their assigned, distributed, and remaining milk
+        // Mode 1: Fetch all sellers with their assigned, distributed, and remaining milk for the specific date
         $sql = "SELECT 
                     s.Seller_id,
                     s.Name AS Seller_name,
@@ -70,7 +70,7 @@ try {
 
         mysqli_stmt_close($stmt);
     } else {
-        // Mode 2: Fetch delivery details for a specific seller
+        // Mode 2: Fetch delivery details for a specific seller for the specific date
         if (!is_numeric($seller_id)) {
             echo json_encode([
                 "status" => "error",
@@ -133,8 +133,8 @@ try {
 
         mysqli_stmt_close($stmt);
 
-        // Fetch assigned milk
-        $sql_assignment = "SELECT SUM(Assigned_quantity) AS assigned_milk
+        // Fetch assigned milk for the specific date
+        $sql_assignment = "SELECT COALESCE(SUM(Assigned_quantity), 0) AS assigned_milk
                            FROM tbl_milk_assignment
                            WHERE Seller_id = ? AND Date = ?";
         $stmt_assignment = mysqli_prepare($conn, $sql_assignment);
@@ -150,7 +150,7 @@ try {
         mysqli_stmt_execute($stmt_assignment);
         $result_assignment = mysqli_stmt_get_result($stmt_assignment);
         $assignment_row = mysqli_fetch_assoc($result_assignment);
-        $assigned_milk = $assignment_row['assigned_milk'] ? floatval($assignment_row['assigned_milk']) : 0;
+        $assigned_milk = floatval($assignment_row['assigned_milk']);
         mysqli_stmt_close($stmt_assignment);
 
         // Calculate remaining milk
